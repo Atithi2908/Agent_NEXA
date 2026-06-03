@@ -1,0 +1,34 @@
+# Virtual Environment
+venv/
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Playwright Browser Data
+data/browser_data/
+
+# Screenshots
+data/screenshots/
+
+# IDE
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Ollama / Temp Files
+*.tmp
+data/browser_data/*
+data/screenshots/*
+
+!data/browser_data/.gitkeep
+!data/screenshots/.gitkeep
