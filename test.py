@@ -1,44 +1,91 @@
 from tools.browser import BrowserTool
 
-
 browser = BrowserTool()
 
-print("Opening Google...")
+try:
+    print("STEP 1: Open YouTube")
+    browser.navigate("https://www.youtube.com")
 
-browser.navigate("https://google.com")
+    browser.page.wait_for_timeout(2000)
 
-obs = browser.observe()
+    obs = browser.observe()
 
-print("\nOBSERVATION:")
-print("-" * 50)
+    print("TITLE:", obs["title"])
+    print("URL:", obs["url"])
 
-print("Title:")
-print(obs["title"])
+    # --------------------------
+    # STEP 2: Search
+    # --------------------------
 
-print("\nURL:")
-print(obs["url"])
+    print("\nSTEP 2: Search dhurandhar song")
 
-print("\nContent Length:")
-print(len(obs["content"]))
+    search_id = obs["inputs"][0]["element_id"]
 
-input("\nPress Enter to continue...")
+    browser.type(
+        element_id=search_id,
+        text="dhurandhar song"
+    )
 
-browser.type("textarea", "LangGraph")
+    browser.press("Enter")
 
-browser.page.keyboard.press("Enter")
+    browser.page.wait_for_timeout(2000)
 
-input("\nVerify search results and press Enter...")
+    obs = browser.observe()
 
-obs = browser.observe()
+    print("TITLE:", obs["title"])
+    print("URL:", obs["url"])
 
-print("\nUPDATED OBSERVATION:")
-print("-" * 50)
+    print("\nTOP LINKS:")
+    for link in obs["links"]:
+        print(link["text"])
 
-print("Title:")
-print(obs["title"])
+    # --------------------------
+    # STEP 3: Open first video
+    # --------------------------
 
-print("\nURL:")
-print(obs["url"])
+    print("\nSTEP 3: Open first video")
 
-print("\nContent Length:")
-print(len(obs["content"]))
+    first_video = None
+
+    for link in obs["links"]:
+        if "Sign in" not in link["text"] and \
+           "Home" not in link["text"] and \
+           "Shorts" not in link["text"]:
+            first_video = link["element_id"]
+            break
+
+    if first_video is None:
+        raise Exception("No video found")
+
+    browser.click(element_id=first_video)
+
+    browser.page.wait_for_timeout(2000)
+
+    obs = browser.observe()
+
+    print("TITLE:", obs["title"])
+    print("URL:", obs["url"])
+
+    # --------------------------
+    # STEP 4: Go back
+    # --------------------------
+
+    print("\nSTEP 4: Go Back")
+
+    browser.page.go_back()
+
+    browser.page.wait_for_timeout(2000)
+
+    obs = browser.observe()
+
+    print("TITLE:", obs["title"])
+    print("URL:", obs["url"])
+
+    print("\nTOP LINKS AFTER BACK:")
+    for link in obs["links"]:
+        print(link["text"])
+
+    print("\nTEST COMPLETED")
+
+finally:
+    browser.close()
