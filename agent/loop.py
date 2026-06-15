@@ -10,11 +10,11 @@ class AgentLoop:
         self,
         planner,
         executor,
-        browser
+        tools
     ):
         self.planner = planner
         self.executor = executor
-        self.browser = browser
+        self.tools = tools
 
     def run(self, state):
 
@@ -42,7 +42,7 @@ class AgentLoop:
                 break
 
             try:
-                self.executor.execute(response)
+                result =  self.executor.execute(response)
 
                 if not DEBUG:
                     print("\n[RESULT]\nsuccess")
@@ -59,10 +59,14 @@ class AgentLoop:
 
             time.sleep(2)
 
-            observation = self.browser.observe()
-
+            tool_used = response["tool"]
+            tool = self.tools[tool_used]
+            if hasattr(tool,"observe"):
+                observation = tool.observe()
+            else:
+                observation = result
+            
             state.observation = observation
-
             state.history.append(response)
 
             state.step_count += 1

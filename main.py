@@ -1,5 +1,7 @@
 from tools.browser import BrowserTool
-
+from tools.desktop import DesktopTool
+from tools.filesystem import FileSystemTool
+from tools.search import SearchTool
 from execution.executor import Executor
 
 from observation.observer import Observer
@@ -17,14 +19,20 @@ def main():
     goal = input("Enter Goal: ")
 
     browser = BrowserTool()
+    desktop = DesktopTool()
+    fileSystem = FileSystemTool()
+    search = SearchTool()
 
     tools = {
-        "browser": browser
+        "browser": browser,
+        "desktop": desktop,
+        "filesystem": fileSystem,
+        "search": search
+        
+        
     }
 
     executor = Executor(tools)
-
-    observation = browser.observe()
 
     llm = GroqClient(
         api_key=os.getenv("GROQ_API_KEY")
@@ -37,12 +45,11 @@ def main():
     loop = AgentLoop(
         planner,
         executor,
-        browser
+        tools
     )
 
     loop.run(state)
     input("\nPress Enter to close browser...")
-    browser.close()
 
 
 if __name__ == "__main__":

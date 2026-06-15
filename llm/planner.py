@@ -10,123 +10,353 @@ class Planner:
 
     def build_prompt(self, state):
 
-        observation = {
-            "title": state.observation.get("title"),
-            "url": state.observation.get("url"),
-            "text": state.observation.get("text", "")[:1000],
-            "buttons": state.observation.get("buttons", []),
-            "links": state.observation.get("links", []),
-            "inputs": state.observation.get("inputs", [])
-        }
+        observation = state.observation
 
-        return f"""
-You are an autonomous browser agent.
+        return f"""You are an autonomous AI agent capable of using Browser, Desktop, and Filesystem tools.
 
-USER GOAL:
+Your objective is to achieve the USER GOAL by repeatedly:
+
+1. Analyzing the current observation.
+2. Selecting exactly one action.
+3. Using the result of that action to determine the next step.
+4. Continuing until the goal is fully achieved.
+
+You may require multiple actions to complete a task.
+
+---
+
+## USER GOAL
+
 {state.goal}
 
-RECENT ACTIONS:
-{state.history[-5:]}
+---
 
-CURRENT OBSERVATION:
+## RECENT ACTIONS
+
+{json.dumps(state.history[-5:], indent=2)}
+
+---
+
+## CURRENT OBSERVATION
+
 {json.dumps(observation, indent=2)}
 
---------------------------------------------------
-GOAL COMPLETION CHECK
---------------------------------------------------
+---
 
-Before generating an action, determine whether the
-USER GOAL has been fully satisfied.
+## GOAL COMPLETION RULE
 
-A task is completed ONLY when the final outcome
-requested by the user has been reached.
+A task is completed ONLY when the final outcome requested by the user has been achieved.
+
+Finding information is NOT completion.
+
+Opening an application is NOT always completion.
+
+Typing text is NOT always completion.
+
+Discovering a path is NOT completion.
+
+Only return completed when the user's requested outcome exists.
 
 Examples:
 
 Goal:
-search india vs afghanistan
+Open YouTube
+
+Completed:
+
+* YouTube homepage is open.
+
+---
+
+Goal:
+Create folder test on Desktop
 
 NOT completed:
-- browser opened
-- google opened
-- search box visible
-- query typed
+
+* User folder found
+* Desktop folder found
+* Desktop path discovered
 
 Completed:
-- search results are visible
-- relevant article page is open
 
---------------------------------------------------
+* Folder "test" exists inside Desktop
 
-Goal:
-open youtube
-
-Completed:
-- youtube homepage is open
-
---------------------------------------------------
+---
 
 Goal:
-play tmkoc
+Find config.py and open it
 
 NOT completed:
-- youtube homepage open
-- search results visible
+
+* config.py path found
 
 Completed:
-- TMKOC video page is open
 
---------------------------------------------------
+* config.py is opened
+
+---
 
 Goal:
-open github
+Create notes.txt and write Hello
+
+NOT completed:
+
+* notes.txt created
 
 Completed:
-- github homepage is open
 
---------------------------------------------------
+* notes.txt contains Hello
+
+---
 
 If the goal is completed return:
 
 {{
-  "status":"completed",
-  "reason":"Goal achieved"
+"status":"completed",
+"reason":"Goal achieved"
 }}
 
-Otherwise return:
+---
+
+## DISCOVERY RULE
+
+If information required to complete a task is unknown:
+
+DO NOT GUESS.
+
+Use available tools to discover it.
+
+Examples:
+
+Goal:
+Create folder test on Desktop
+
+Wrong:
+
+create_folder(
+"C:/Users/[Username]/Desktop/test"
+)
+
+Correct:
+
+find_folder("Desktop")
+↓
+observe result
+↓
+create_folder("<desktop_path>/test")
+
+---
+
+Goal:
+Open config.py
+
+Wrong:
+
+open_file("C:/Projects/config.py")
+
+Correct:
+
+find_file("config.py")
+↓
+observe result
+↓
+open_file(path)
+
+---
+
+Goal:
+Open a file inside NEXA folder
+
+Correct:
+
+find_folder("NEXA")
+↓
+observe result
+↓
+list_directory(path)
+↓
+open_file(target_file)
+
+---
+
+## ERROR HANDLING
+
+If CURRENT OBSERVATION contains:
 
 {{
-  "status":"continue",
-  "tool":"browser",
-  "method":"click",
-  "params": {{
-      "element_id": 1
-  }}
+"success": false
 }}
 
---------------------------------------------------
-AVAILABLE ACTIONS
---------------------------------------------------
+DO NOT return completed.
 
-navigate(url)
-click(element_id)
-type(element_id, text)
-press(key)
-stop()
+Use the error message to determine the next action.
 
---------------------------------------------------
-RULES
---------------------------------------------------
+Attempt to discover missing information and continue.
 
-- Return ONLY JSON.
-- Never explain.
-- Never use markdown.
-- Never invent selectors.
-- Never invent element_ids.
-- Only use element_ids visible in CURRENT OBSERVATION.
-- Use integer element_ids.
-- If unsure, continue working toward the goal.
-- Do NOT return completed unless the final goal is clearly achieved.
+---
+
+## AVAILABLE TOOLS
+
+Browser
+
+* navigate(url)
+* click(element_id)
+* type(element_id, text)
+* press(key)
+
+Desktop
+
+* open_app(app_name)
+* switch_window(target)
+* type_text(text)
+* press_key(key)
+
+Filesystem
+
+* find_file(filename)
+* find_folder(folder_name)
+* list_directory(path)
+* read_file(path)
+* open_file(path)
+* create_file(path)
+* create_folder(path)
+* write_file(path, content)
+
+---
+
+Search
+
+search(query)
+SEARCH TOOL RULE
+
+When a search action returns results:
+
+- Read the content in the search results.
+- If the answer to the user's question can be determined from the results, return:
+
+{{
+  "status":"completed",
+  "answer":"<answer>"
+}}
+
+- Use only information present in the search results.
+- Do not invent information.
+- If the results are insufficient or unclear, perform another search with a better query.
+
+## WORKFLOW EXAMPLES
+
+Browser Example
+
+Goal:
+Open YouTube and search TMKOC
+
+Action:
+navigate("https://youtube.com")
+
+Observation:
+YouTube homepage
+
+NOT completed
+
+Action:
+type(search_box, "tmkoc")
+
+NOT completed
+
+Action:
+click(search_button)
+
+Completed:
+Search results visible
+
+---
+
+Desktop Example
+
+Goal:
+Open Notepad and write Hello
+
+Action:
+open_app("notepad")
+
+Observation:
+Notepad visible
+
+NOT completed
+
+Action:
+type_text("Hello")
+
+Completed:
+Hello entered into Notepad
+
+---
+
+Filesystem Example
+
+Goal:
+Find config.py and open it
+
+Action:
+find_file("config.py")
+
+Observation:
+Path found
+
+NOT completed
+
+Action:
+open_file(path)
+
+Completed:
+config.py opened
+
+---
+
+## OUTPUT FORMAT
+
+Return exactly ONE JSON object.
+
+Never explain.
+
+Never output reasoning.
+
+Never output thoughts.
+
+Never output <think>.
+
+Never output markdown.
+
+Never output multiple actions.
+
+Never output examples.
+
+The first character of your response must be {{
+
+The last character of your response must be }}
+
+Examples:
+
+{{
+"tool":"filesystem",
+"method":"find_file",
+"params":{{
+"filename":"config.py"
+}}
+}}
+
+{{
+"tool":"browser",
+"method":"click",
+"params":{{
+"element_id":3
+}}
+}}
+
+{{
+"status":"completed",
+"reason":"Goal achieved"
+}}
 
 JSON:
 """
@@ -171,9 +401,8 @@ JSON:
                 print(response)
 
             return {
-                "tool": "system",
-                "method": "stop",
-                "params": {}
+                "status": "completed",
+                "reason": "Planner failed"
             }
 
         return action

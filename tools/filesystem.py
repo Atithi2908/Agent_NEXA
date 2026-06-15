@@ -15,7 +15,7 @@ class FileSystemTool:
                     break
             return {
                 "success": True,
-                "matches": matches
+                "matches": matches[:20]
             }
         except Exception as e:
             return {
@@ -36,7 +36,7 @@ class FileSystemTool:
             
             return {
                 "success": True,
-                "matches": matches
+                "matches": matches[:20]
             }
         except Exception as e:
             return {
@@ -57,7 +57,7 @@ class FileSystemTool:
             
             return {
                 "success": True,
-                "items": items
+                "items": items[:20]
             }
         except Exception as e:
             return {

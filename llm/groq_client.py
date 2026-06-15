@@ -13,7 +13,9 @@ class GroqClient:
                     "role": "user",
                     "content": prompt
                 }
+                
             ],
+            include_reasoning= False
             
         )
 

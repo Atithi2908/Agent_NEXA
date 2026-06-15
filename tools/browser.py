@@ -6,18 +6,29 @@ from playwright.sync_api import sync_playwright
 class BrowserTool:
 
     def __init__(self):
+       
+        self.playwright = None
+        self.context = None
+        self.page = None
+        self.element_id_map = {}
+        
+        
+    def start_browser(self):
+
+        if self.context is not None:
+            return
+
         self.playwright = sync_playwright().start()
 
         self.context = self.playwright.chromium.launch_persistent_context(
-            user_data_dir="./data/browser_data",
-            headless=False
+        user_data_dir="./data/browser_data",
+        headless=False
         )
 
         if self.context.pages:
             self.page = self.context.pages[0]
         else:
             self.page = self.context.new_page()
-        self.element_id_map = {}
 
     def _escape_selector_value(self, value):
         """Safely escape quotes in attribute values for CSS selectors."""
@@ -31,10 +42,12 @@ class BrowserTool:
         return f'[aria-label="{escaped}"]'
 
     def navigate(self, url):
+        self.start_browser()
         self.page.goto(url)
         self.page.wait_for_load_state("networkidle")
 
     def click(self, selector=None, element_id=None):
+        self.start_browser()
         if element_id is not None:
             if element_id not in self.element_id_map:
                 raise ValueError(f"Element ID {element_id} not found in mapping. Available IDs: {list(self.element_id_map.keys())}")
@@ -55,6 +68,7 @@ class BrowserTool:
             raise Exception(f"Click failed for selector '{selector}': {str(e)}")
 
     def type(self, selector=None, element_id=None, text=""):
+        self.start_browser()
         if element_id is not None:
             if element_id not in self.element_id_map:
                 raise ValueError(f"Element ID {element_id} not found in mapping. Available IDs: {list(self.element_id_map.keys())}")
@@ -69,10 +83,12 @@ class BrowserTool:
             raise Exception(f"Type failed for selector '{selector}': {str(e)}")
 
     def press(self, key):
+        self.start_browser()
         self.page.keyboard.press(key)
         self.page.wait_for_load_state("networkidle")
 
     def observe(self):
+        self.start_browser()
 
         title = self.page.title()
         url = self.page.url
@@ -219,6 +235,7 @@ class BrowserTool:
         }
 
     def close(self):
+        self.start_browser()
         if self.context:
             try:
                 self.context.close()
