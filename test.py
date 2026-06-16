@@ -1,9 +1,17 @@
-from tools.search import SearchTool
+from rag.chunker import Chunker
 
-search = SearchTool()
+chunker = Chunker()
 
-result = search.search(
-    "what was the score of rohit sharma in last odi he played against afg this month"
+text = "A" * 1500
+
+chunks = chunker.chunk_text(text)
+
+print(
+    f"Chunks: {len(chunks)}"
 )
 
-print(result)
+for i, chunk in enumerate(chunks):
+
+    print(
+        f"Chunk {i+1}: {len(chunk)} chars"
+    )

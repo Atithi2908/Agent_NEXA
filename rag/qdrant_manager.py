@@ -1,0 +1,68 @@
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PointStruct
+)
+
+
+class QdrantManager:
+
+    COLLECTION_NAME = "knowledge_base"
+    VECTOR_SIZE = 768
+
+    def __init__(self):
+
+        self.client = QdrantClient(
+            path="./data/qdrant"
+        )
+
+        self.create_collection()
+        
+    def close(self):
+        self.client.close()
+        
+    def create_collection(self):
+
+        collections = self.client.get_collections()
+
+        existing_collections = [
+            collection.name
+            for collection in collections.collections
+        ]
+
+        if self.COLLECTION_NAME in existing_collections:
+            return
+
+        self.client.create_collection(
+            collection_name=self.COLLECTION_NAME,
+            vectors_config=VectorParams(
+                size=self.VECTOR_SIZE,
+                distance=Distance.COSINE
+            )
+        )
+
+        print(
+            f"Created collection: {self.COLLECTION_NAME}"
+        )
+    def insert_chunk(
+    self,
+    chunk_id,
+    chunk_text,
+    embedding,
+    source
+    ):
+
+        self.client.upsert(
+            collection_name=self.COLLECTION_NAME,
+            points=[
+                PointStruct(
+                    id=chunk_id,
+                    vector=embedding,
+                    payload={
+                        "text": chunk_text,
+                        "source": source
+                    }
+            )
+        ]
+    )
