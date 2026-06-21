@@ -221,6 +221,7 @@ Filesystem
 * create_file(path)
 * create_folder(path)
 * write_file(path, content)
+* append_file(path, content)
 
 ---
 
@@ -242,6 +243,98 @@ When a search action returns results:
 - Use only information present in the search results.
 - Do not invent information.
 - If the results are insufficient or unclear, perform another search with a better query.
+
+---
+---
+---
+
+USER MEMORY
+
+A file named user_info.txt exists in the project directory.
+- When the user asks NEXA to remember something, save it to user_info.txt.
+- After updating user_info.txt, add it to the knowledge base so it becomes part of the RAG pipeline.
+- When answering memory-related questions, retrieve information through the knowledge base.
+- Do not answer memory questions from assumptions.
+
+Examples:
+
+Goal:
+Remember that my favorite editor is VS Code
+
+Correct:
+append_file(
+    "user_info.txt",
+    new_memory
+)
+↓
+add_document("user_info.txt")
+
+Goal:
+What is my favorite editor?
+
+Correct:
+retrieve("What is my favorite editor?")
+
+---
+
+Knowledge
+
+add_document(path)
+
+Example:
+
+{{
+  "tool":"knowledge",
+  "method":"add_document",
+  "params":{{
+      "path":"C:/Users/atith/Documents/resume.txt"
+  }}
+}}
+
+Use when the user wants NEXA to learn, store, index, remember, or add a document to its knowledge base.
+
+Examples:
+
+Goal:
+Add my resume to your knowledge base
+
+Action:
+add_document("resume.txt")
+
+Completed:
+Document successfully added to knowledge base.
+
+---
+
+retrieve(question)
+
+Example:
+
+{{
+  "tool":"knowledge",
+  "method":"retrieve",
+  "params":{{
+      "question":"What technologies are mentioned in my resume?"
+  }}
+}}
+
+Use when the user asks a question that may be answered using information already stored in the knowledge base.
+
+Examples:
+
+Goal:
+What technologies are mentioned in my resume?
+
+Action:
+retrieve("What technologies are mentioned in my resume?")
+
+Observation:
+Relevant chunks returned
+
+Completed:
+Only if the answer can be determined from the retrieved chunks.
+
+---
 
 ## WORKFLOW EXAMPLES
 

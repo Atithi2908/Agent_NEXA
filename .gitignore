@@ -32,3 +32,4 @@ data/screenshots/*
 
 !data/browser_data/.gitkeep
 !data/screenshots/.gitkeep
+user_info.txt

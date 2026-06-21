@@ -2,7 +2,10 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     VectorParams,
-    PointStruct
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue
 )
 
 
@@ -65,4 +68,44 @@ class QdrantManager:
                     }
             )
         ]
+    )
+    
+    def count_points(self):
+
+        return self.client.count(
+        collection_name=self.COLLECTION_NAME,
+        exact=True
+        ).count
+        
+    def search(
+    self,
+    query_embedding,
+    limit=5
+        ):
+
+        results = self.client.query_points(
+            collection_name=self.COLLECTION_NAME,
+            query=query_embedding,
+            limit=limit
+    )
+
+        return results.points
+    
+    def delete_source(
+    self,
+    source
+):
+
+        self.client.delete(
+            collection_name=self.COLLECTION_NAME,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="source",
+                        match=MatchValue(
+                            value=source
+                    )
+                )
+            ]
+        )
     )

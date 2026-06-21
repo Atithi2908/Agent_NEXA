@@ -2,6 +2,7 @@ from tools.browser import BrowserTool
 from tools.desktop import DesktopTool
 from tools.filesystem import FileSystemTool
 from tools.search import SearchTool
+from tools.knowledge import KnowledgeTool
 from execution.executor import Executor
 
 from observation.observer import Observer
@@ -22,12 +23,14 @@ def main():
     desktop = DesktopTool()
     fileSystem = FileSystemTool()
     search = SearchTool()
+    knowledge = KnowledgeTool()
 
     tools = {
         "browser": browser,
         "desktop": desktop,
         "filesystem": fileSystem,
-        "search": search
+        "search": search,
+        "knowledge": knowledge
         
         
     }

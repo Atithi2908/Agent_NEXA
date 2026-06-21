@@ -1,17 +1,10 @@
-from rag.chunker import Chunker
+from tools.knowledge import KnowledgeTool
 
-chunker = Chunker()
+knowledge = KnowledgeTool()
 
-text = "A" * 1500
-
-chunks = chunker.chunk_text(text)
-
-print(
-    f"Chunks: {len(chunks)}"
+result = knowledge.retrieve(
+    "What technologies have I worked with?"
 )
 
-for i, chunk in enumerate(chunks):
-
-    print(
-        f"Chunk {i+1}: {len(chunk)} chars"
-    )
+print(result)
+knowledge.qdrant.close()

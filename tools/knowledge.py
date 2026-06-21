@@ -27,7 +27,9 @@ class KnowledgeTool:
             chunks = self.chunker.chunk_text(
                 text
             )
-
+            self.qdrant.delete_source(
+            path.name
+            )
             for chunk in chunks:
 
                 embedding = self.embedder.embed(
@@ -53,3 +55,44 @@ class KnowledgeTool:
                 "success": False,
                 "error": str(e)
             }
+            
+    def retrieve(
+    self,
+    question,
+    limit=5
+):
+
+        try:
+
+            query_embedding = self.embedder.embed(
+            question
+            )
+
+            results = self.qdrant.search(
+            query_embedding,
+            limit
+            )
+            print(results)
+
+            chunks = []
+
+            for result in results:
+
+                chunks.append({
+                "score": result.score,
+                "text": result.payload["text"],
+                "source": result.payload["source"]
+                })
+
+            return {
+            "success": True,
+            "question": question,
+            "chunks": chunks
+            }
+
+        except Exception as e:
+
+            return {
+            "success": False,
+            "error": str(e)
+        }
