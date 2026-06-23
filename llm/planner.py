@@ -1,19 +1,31 @@
 import json
-
+from langchain_core.prompts import ChatPromptTemplate
 DEBUG = True
 
+planner_prompt = ChatPromptTemplate.from_template(
+    """
+    You are an autonomous AI agent capable of using Browser, Desktop, and Filesystem tools.
 
-class Planner:
+    ## USER GOAL
 
-    def __init__(self, llm):
-        self.llm = llm
+    {goal}
 
-    def build_prompt(self, state):
+    ---
 
-        observation = state.observation
+    ## RECENT ACTIONS
 
-        return f"""You are an autonomous AI agent capable of using Browser, Desktop, and Filesystem tools.
+    {history}
 
+    ---
+
+    ## CURRENT OBSERVATION
+
+    {observation}
+
+    ---
+
+   
+    
 Your objective is to achieve the USER GOAL by repeatedly:
 
 1. Analyzing the current observation.
@@ -22,24 +34,6 @@ Your objective is to achieve the USER GOAL by repeatedly:
 4. Continuing until the goal is fully achieved.
 
 You may require multiple actions to complete a task.
-
----
-
-## USER GOAL
-
-{state.goal}
-
----
-
-## RECENT ACTIONS
-
-{json.dumps(state.history[-5:], indent=2)}
-
----
-
-## CURRENT OBSERVATION
-
-{json.dumps(observation, indent=2)}
 
 ---
 
@@ -451,8 +445,32 @@ Examples:
 "reason":"Goal achieved"
 }}
 
-JSON:
-"""
+
+    JSON:   
+    """
+)
+    
+
+class Planner:
+
+    def __init__(self, llm):
+        self.llm = llm
+    
+    def build_prompt(self, state):
+
+        return planner_prompt.invoke(
+        {
+            "goal": state.goal,
+            "history": json.dumps(
+                state.history[-5:],
+                indent=2
+            ),
+            "observation": json.dumps(
+                state.observation,
+                indent=2
+            )
+        }
+    )
 
     def extract_json(self, response):
 
@@ -467,11 +485,12 @@ JSON:
     def plan(self, state):
 
         prompt = self.build_prompt(state)
+        prompt_text = prompt.to_string()
 
         if DEBUG:
-            print(f"\n[DEBUG] Prompt length: {len(prompt)}")
+            print(f"\n[DEBUG] Prompt length: {len(prompt_text)}")
 
-        response = self.llm.generate(prompt)
+        response = self.llm.generate(prompt_text)
 
         if DEBUG:
             print(f"\n[DEBUG] RAW LLM RESPONSE:\n{response}")

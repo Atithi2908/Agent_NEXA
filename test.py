@@ -1,10 +1,26 @@
-from tools.knowledge import KnowledgeTool
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 
-knowledge = KnowledgeTool()
 
-result = knowledge.retrieve(
-    "What technologies have I worked with?"
+llm = ChatOllama(
+    model="qwen2.5:3b"
 )
 
-print(result)
-knowledge.qdrant.close()
+prompt = ChatPromptTemplate.from_template(
+"""
+Answer the question.
+
+Question:
+{question}
+"""
+)
+
+chain = prompt | llm
+
+response = chain.invoke(
+{
+    "question":"What is Python?"
+}
+)
+
+print(response.content)
