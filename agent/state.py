@@ -1,7 +1,16 @@
-class AgentState:
-    def __init__(self,goal):
-        self.goal = goal
-        self.history = []
-        self.observation= {}
-        self.last_result = {}
-        self.step_count = 0
+from typing import TypedDict
+
+
+class GraphState(TypedDict):
+
+    goal: str
+
+    history: list
+
+    observation: dict
+
+    step_count: int
+
+    response: object
+
+    result: object

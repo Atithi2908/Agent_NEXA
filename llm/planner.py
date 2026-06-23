@@ -123,13 +123,13 @@ class Planner:
 
         return planner_prompt.invoke(
         {
-            "goal": state.goal,
+            "goal": state["goal"],
             "history": json.dumps(
-                state.history[-5:],
+                state["history"][-2:],
                 indent=2
             ),
             "observation": json.dumps(
-                state.observation,
+                state["observation"],
                 indent=2
             )
         }

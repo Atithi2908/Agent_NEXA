@@ -9,7 +9,7 @@ def set_browser_tool(tool_instance):
 
 
 @tool
-def navigate(url: str):
+def browser_navigate(url: str):
     """
     Navigate the browser to a URL.
     """
@@ -17,7 +17,7 @@ def navigate(url: str):
 
 
 @tool
-def click(element_id: int):
+def browser_click(element_id: int):
     """
     Click an element using its element id.
     """
@@ -55,7 +55,7 @@ def browser_observe():
 
 
 @tool
-def close_browser():
+def browser_close_browser():
     """
     Close the browser.
     """
@@ -63,10 +63,10 @@ def close_browser():
 
 
 BROWSER_TOOLS = [
-    navigate,
-    click,
+    browser_navigate,
+    browser_click,
     browser_type_text,
     browser_press,
     browser_observe,
-    close_browser
+    browser_close_browser
 ]

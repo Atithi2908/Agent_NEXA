@@ -3,7 +3,7 @@ from tools.desktop import DesktopTool
 from tools.filesystem import FileSystemTool
 from tools.search import SearchTool
 from tools.knowledge import KnowledgeTool
-
+from agent.graph import NexaGraph
 from langchain_tools.browser_tools import (
     set_browser_tool
 )
@@ -26,9 +26,6 @@ from execution.executor import Executor
 
 from llm.groq_client import GroqClient
 from llm.planner import Planner
-
-from agent.state import AgentState
-from agent.loop import AgentLoop
 
 from dotenv import load_dotenv
 
@@ -101,19 +98,14 @@ def main():
         ALL_TOOLS
     )
 
-    state = AgentState(
-        goal
-    )
 
-    loop = AgentLoop(
-        planner,
-        executor,
-        tools
-    )
-
-    loop.run(
-        state
-    )
+    graph = NexaGraph(
+    planner,
+    executor,
+    tools
+)
+    print(browser.observe())
+    graph.run(goal)
 
     input(
         "\nPress Enter to close browser..."

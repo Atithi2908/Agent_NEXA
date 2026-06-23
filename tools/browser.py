@@ -45,6 +45,11 @@ class BrowserTool:
         self.start_browser()
         self.page.goto(url)
         self.page.wait_for_load_state("networkidle")
+        
+        return {
+            "success":True,
+            "url":url
+        }
 
     def click(self, selector=None, element_id=None):
         self.start_browser()
@@ -66,6 +71,11 @@ class BrowserTool:
             self.page.wait_for_load_state("networkidle")
         except Exception as e:
             raise Exception(f"Click failed for selector '{selector}': {str(e)}")
+        
+        return {
+            "success":True,
+            "element_id":element_id
+        }
 
     def type(self, selector=None, element_id=None, text=""):
         self.start_browser()
@@ -81,11 +91,19 @@ class BrowserTool:
             self.page.type(selector, text)
         except Exception as e:
             raise Exception(f"Type failed for selector '{selector}': {str(e)}")
+        
+        return {
+            "success":True,
+            "element_id":element_id
+        }
 
     def press(self, key):
         self.start_browser()
         self.page.keyboard.press(key)
         self.page.wait_for_load_state("networkidle")
+        return {
+            "success":True
+        }
 
     def observe(self):
         self.start_browser()
@@ -228,10 +246,9 @@ class BrowserTool:
         return {
             "title": title,
             "url": url,
-            "text": text,
-            "buttons": buttons,
-            "links": links,
-            "inputs": inputs
+            "buttons": buttons[:20],
+            "links": links[:20],
+            "inputs": inputs[:20]
         }
 
     def close(self):

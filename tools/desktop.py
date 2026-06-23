@@ -155,7 +155,7 @@ class DesktopTool:
         return {
             "success": True,
             "killed": killed
-        }
+}
 
     def type_text(self, text):
 
