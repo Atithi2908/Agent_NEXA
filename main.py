@@ -1,5 +1,9 @@
-
 from tools.browser import BrowserTool
+from tools.desktop import DesktopTool
+from tools.filesystem import FileSystemTool
+from tools.search import SearchTool
+from tools.knowledge import KnowledgeTool
+
 from langchain_tools.browser_tools import (
     set_browser_tool
 )
@@ -15,39 +19,68 @@ from langchain_tools.knowledge_tools import (
 from langchain_tools.search_tools import (
     set_search_tool
 )
-from tools.desktop import DesktopTool
-from tools.filesystem import FileSystemTool
-from tools.search import SearchTool
-from tools.knowledge import KnowledgeTool
-from execution.executor import Executor
 
-from observation.observer import Observer
+from langchain_tools.all_tools import ALL_TOOLS
+
+from execution.executor import Executor
 
 from llm.groq_client import GroqClient
 from llm.planner import Planner
 
 from agent.state import AgentState
 from agent.loop import AgentLoop
+
 from dotenv import load_dotenv
+
 import os
+
 load_dotenv()
+
+
+# =====================================================
+# REAL TOOLS
+# =====================================================
+
 search = SearchTool()
 knowledge = KnowledgeTool()
 browser = BrowserTool()
 desktop = DesktopTool()
 fileSystem = FileSystemTool()
+
+
+# =====================================================
+# CONNECT REAL TOOLS TO LANGCHAIN WRAPPERS
+# =====================================================
+
 set_filesystem_tool(
     fileSystem
 )
+
 set_knowledge_tool(
     knowledge
 )
-set_search_tool(search)
-set_browser_tool(browser)
-set_desktop_tool(desktop)
+
+set_search_tool(
+    search
+)
+
+set_browser_tool(
+    browser
+)
+
+set_desktop_tool(
+    desktop
+)
+
+
+# =====================================================
+# MAIN
+# =====================================================
+
 def main():
 
     goal = input("Enter Goal: ")
+
     tools = {
         "browser": browser,
         "desktop": desktop,
@@ -56,15 +89,21 @@ def main():
         "knowledge": knowledge
     }
 
-    executor = Executor(tools)
-
     llm = GroqClient(
         api_key=os.getenv("GROQ_API_KEY")
     )
 
-    planner = Planner(llm)
+    planner = Planner(
+        llm
+    )
 
-    state = AgentState(goal)
+    executor = Executor(
+        ALL_TOOLS
+    )
+
+    state = AgentState(
+        goal
+    )
 
     loop = AgentLoop(
         planner,
@@ -72,8 +111,13 @@ def main():
         tools
     )
 
-    loop.run(state)
-    input("\nPress Enter to close browser...")
+    loop.run(
+        state
+    )
+
+    input(
+        "\nPress Enter to close browser..."
+    )
 
 
 if __name__ == "__main__":

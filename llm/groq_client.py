@@ -1,22 +1,13 @@
-from groq import Groq
-class GroqClient:
+from langchain_groq import ChatGroq
+
+
+class GroqClient(ChatGroq):
 
     def __init__(self, api_key):
-        self.client = Groq(api_key=api_key)
 
-    def generate(self, prompt):
-
-        response = self.client.chat.completions.create(
+        super().__init__(
             model="qwen/qwen3-32b",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-                
-            ],
-            include_reasoning= False
-            
+            api_key=api_key,
+            temperature=0,
+            reasoning_effort="none"
         )
-
-        return response.choices[0].message.content

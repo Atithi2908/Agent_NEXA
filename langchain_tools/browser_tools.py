@@ -25,12 +25,12 @@ def click(element_id: int):
 
 
 @tool
-def type_text(
+def browser_type_text(
     element_id: int,
     text: str
 ):
     """
-    Type text into an input field.
+    Type text into an input field on browser.
     """
     return browser.type(
         element_id=element_id,
@@ -39,7 +39,7 @@ def type_text(
 
 
 @tool
-def press(key: str):
+def browser_press(key: str):
     """
     Press a keyboard key.
     """
@@ -47,7 +47,7 @@ def press(key: str):
 
 
 @tool
-def observe():
+def browser_observe():
     """
     Observe the current webpage and return page information.
     """
@@ -65,8 +65,8 @@ def close_browser():
 BROWSER_TOOLS = [
     navigate,
     click,
-    type_text,
-    press,
-    observe,
+    browser_type_text,
+    browser_press,
+    browser_observe,
     close_browser
 ]
