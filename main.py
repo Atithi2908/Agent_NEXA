@@ -1,9 +1,5 @@
 
 from tools.browser import BrowserTool
-search = SearchTool()
-knowledge = KnowledgeTool()
-browser = BrowserTool()
-desktop = DesktopTool()
 from langchain_tools.browser_tools import (
     set_browser_tool
 )
@@ -15,6 +11,9 @@ from langchain_tools.filesystem_tools import (
 )
 from langchain_tools.knowledge_tools import (
     set_knowledge_tool
+)
+from langchain_tools.search_tools import (
+    set_search_tool
 )
 from tools.desktop import DesktopTool
 from tools.filesystem import FileSystemTool
@@ -32,6 +31,10 @@ from agent.loop import AgentLoop
 from dotenv import load_dotenv
 import os
 load_dotenv()
+search = SearchTool()
+knowledge = KnowledgeTool()
+browser = BrowserTool()
+desktop = DesktopTool()
 fileSystem = FileSystemTool()
 set_filesystem_tool(
     fileSystem
@@ -39,6 +42,7 @@ set_filesystem_tool(
 set_knowledge_tool(
     knowledge
 )
+set_search_tool(search)
 set_browser_tool(browser)
 set_desktop_tool(desktop)
 def main():
@@ -50,8 +54,6 @@ def main():
         "filesystem": fileSystem,
         "search": search,
         "knowledge": knowledge
-        
-        
     }
 
     executor = Executor(tools)

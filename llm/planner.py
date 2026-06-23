@@ -1,7 +1,7 @@
 import json
 from langchain_core.prompts import ChatPromptTemplate
 DEBUG = True
-
+from langchain_tools.all_tools import ALL_TOOLS
 planner_prompt = ChatPromptTemplate.from_template(
     """
     You are an autonomous AI agent capable of using Browser, Desktop, and Filesystem tools.
@@ -103,13 +103,6 @@ Completed:
 
 ---
 
-If the goal is completed return:
-
-{{
-"status":"completed",
-"reason":"Goal achieved"
-}}
-
 ---
 
 ## DISCOVERY RULE
@@ -172,14 +165,13 @@ list_directory(path)
 open_file(target_file)
 
 ---
+When the goal is fully achieved and no further actions are required,
+respond directly to the user.
 
-## ERROR HANDLING
+Do not call a tool if the task is already complete.
 
 If CURRENT OBSERVATION contains:
 
-{{
-"success": false
-}}
 
 DO NOT return completed.
 
@@ -187,52 +179,10 @@ Use the error message to determine the next action.
 
 Attempt to discover missing information and continue.
 
----
-
-## AVAILABLE TOOLS
-
-Browser
-
-* navigate(url)
-* click(element_id)
-* type(element_id, text)
-* press(key)
-
-Desktop
-
-* open_app(app_name)
-* switch_window(target)
-* type_text(text)
-* press_key(key)
-
-Filesystem
-
-* find_file(filename)
-* find_folder(folder_name)
-* list_directory(path)
-* read_file(path)
-* open_file(path)
-* create_file(path)
-* create_folder(path)
-* write_file(path, content)
-* append_file(path, content)
-
----
-
-Search
-
-search(query)
-SEARCH TOOL RULE
-
 When a search action returns results:
 
 - Read the content in the search results.
-- If the answer to the user's question can be determined from the results, return:
-
-{{
-  "status":"completed",
-  "answer":"<answer>"
-}}
+- If the answer to the user's question can be determined from the results, 
 
 - Use only information present in the search results.
 - Do not invent information.
@@ -275,16 +225,6 @@ Knowledge
 
 add_document(path)
 
-Example:
-
-{{
-  "tool":"knowledge",
-  "method":"add_document",
-  "params":{{
-      "path":"C:/Users/atith/Documents/resume.txt"
-  }}
-}}
-
 Use when the user wants NEXA to learn, store, index, remember, or add a document to its knowledge base.
 
 Examples:
@@ -301,16 +241,6 @@ Document successfully added to knowledge base.
 ---
 
 retrieve(question)
-
-Example:
-
-{{
-  "tool":"knowledge",
-  "method":"retrieve",
-  "params":{{
-      "question":"What technologies are mentioned in my resume?"
-  }}
-}}
 
 Use when the user asks a question that may be answered using information already stored in the knowledge base.
 
@@ -397,56 +327,13 @@ open_file(path)
 
 Completed:
 config.py opened
+Use at most one tool at a time.
 
----
+When additional information is required,
+use an appropriate tool.
 
-## OUTPUT FORMAT
-
-Return exactly ONE JSON object.
-
-Never explain.
-
-Never output reasoning.
-
-Never output thoughts.
-
-Never output <think>.
-
-Never output markdown.
-
-Never output multiple actions.
-
-Never output examples.
-
-The first character of your response must be {{
-
-The last character of your response must be }}
-
-Examples:
-
-{{
-"tool":"filesystem",
-"method":"find_file",
-"params":{{
-"filename":"config.py"
-}}
-}}
-
-{{
-"tool":"browser",
-"method":"click",
-"params":{{
-"element_id":3
-}}
-}}
-
-{{
-"status":"completed",
-"reason":"Goal achieved"
-}}
-
-
-    JSON:   
+When the goal is complete,
+respond directly with the final answer.
     """
 )
     
@@ -455,6 +342,9 @@ class Planner:
 
     def __init__(self, llm):
         self.llm = llm
+        self.llm_with_tools = llm.bind_tools(
+            ALL_TOOLS
+        )
     
     def build_prompt(self, state):
 
@@ -472,16 +362,6 @@ class Planner:
         }
     )
 
-    def extract_json(self, response):
-
-        start = response.find("{")
-        end = response.rfind("}") + 1
-
-        if start == -1 or end == 0:
-            raise ValueError("No JSON found in response")
-
-        return response[start:end]
-
     def plan(self, state):
 
         prompt = self.build_prompt(state)
@@ -490,31 +370,10 @@ class Planner:
         if DEBUG:
             print(f"\n[DEBUG] Prompt length: {len(prompt_text)}")
 
-        response = self.llm.generate(prompt_text)
+        response = self.llm_with_tools.invoke(
+            prompt_text
+            )
 
         if DEBUG:
             print(f"\n[DEBUG] RAW LLM RESPONSE:\n{response}")
-
-        try:
-
-            response = self.extract_json(response)
-
-            if DEBUG:
-                print(f"\n[DEBUG] EXTRACTED JSON:\n{response}")
-
-            action = json.loads(response)
-
-        except (ValueError, json.JSONDecodeError) as e:
-
-            print("[ERROR] JSON parse failed")
-
-            if DEBUG:
-                print(f"[DEBUG] {str(e)}")
-                print(response)
-
-            return {
-                "status": "completed",
-                "reason": "Planner failed"
-            }
-
-        return action
+        return response

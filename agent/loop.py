@@ -1,5 +1,4 @@
 import time
-import json
 
 DEBUG = True
 
@@ -28,30 +27,42 @@ class AgentLoop:
             response = self.planner.plan(state)
 
             if response is None:
+
                 print("\n[ERROR] Planner returned None")
                 break
 
-            if not DEBUG:
-                print("\n[PLANNER RESPONSE]")
-                print(json.dumps(response, indent=2))
+            if DEBUG:
 
-            # Goal completed
-            if response.get("status") == "completed":
+                print("\n[PLANNER CONTENT]")
+                print(response.content)
+
+                print("\n[PLANNER TOOL CALLS]")
+                print(response.tool_calls)
+
+            # ==================================================
+            # COMPLETION CHECK
+            # ==================================================
+
+            if not response.tool_calls:
+
                 print("\n[TASK COMPLETED]")
-                print(response.get("reason", "Goal achieved"))
+
+                print(response.content)
+
                 break
 
             try:
-                result =  self.executor.execute(response)
 
-                if not DEBUG:
-                    print("\n[RESULT]\nsuccess")
+                result = self.executor.execute(
+                    response
+                )
 
             except Exception as e:
 
                 print(f"\n[ERROR]\n{str(e)}")
 
                 if DEBUG:
+
                     import traceback
                     traceback.print_exc()
 
@@ -59,22 +70,35 @@ class AgentLoop:
 
             time.sleep(2)
 
-            tool_used = response["tool"]
-            tool = self.tools[tool_used]
-            if hasattr(tool,"observe"):
-                observation = tool.observe()
-            else:
-                observation = result
-            
+            # ==================================================
+            # OBSERVATION
+            # ==================================================
+
+            observation = result
+
             state.observation = observation
-            state.history.append(response)
+
+            state.history.append(
+                {
+                    "tool_calls": response.tool_calls,
+                    "content": response.content
+                }
+            )
 
             state.step_count += 1
 
             if DEBUG:
+
                 print("\n[OBSERVATION]")
-                print(json.dumps(observation, indent=2))
+                print(observation)
+
+            # ==================================================
+            # SAFETY LIMIT
+            # ==================================================
 
             if state.step_count >= 20:
-                print("\n[ERROR]\nMax steps reached")
+
+                print("\n[ERROR]")
+                print("Max steps reached")
+
                 break
