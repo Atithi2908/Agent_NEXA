@@ -5,6 +5,9 @@ from tools.browser import BrowserTool
 from langchain_tools.desktop_tools import (
     set_desktop_tool
 )
+from langchain_tools.filesystem_tools import (
+    set_filesystem_tool
+)
 browser = BrowserTool()
 from tools.desktop import DesktopTool
 from tools.filesystem import FileSystemTool
@@ -25,10 +28,14 @@ load_dotenv()
 set_browser_tool(browser)
 desktop = DesktopTool()
 set_desktop_tool(desktop)
+fileSystem = FileSystemTool()
+set_filesystem_tool(
+    fileSystem
+)
 def main():
 
     goal = input("Enter Goal: ")
-    fileSystem = FileSystemTool()
+    
     search = SearchTool()
     knowledge = KnowledgeTool()
 
