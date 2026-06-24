@@ -76,7 +76,7 @@ set_desktop_tool(
 
 def main():
 
-    goal = input("Enter Goal: ")
+    
 
     tools = {
         "browser": browser,
@@ -104,8 +104,12 @@ def main():
     executor,
     tools
 )
-    print(browser.observe())
-    graph.run(goal)
+    
+    while True:
+        goal = input("Enter Goal: ")
+        if goal.lower() == "exit":
+            break
+        graph.run(goal)
 
     input(
         "\nPress Enter to close browser..."
