@@ -1,3 +1,4 @@
+import time
 import pygame
 
 
@@ -21,5 +22,11 @@ class AudioPlayer:
         while pygame.mixer.music.get_busy():
 
             pygame.time.Clock().tick(
-                10
+                30
             )
+
+        pygame.mixer.music.stop()
+
+        pygame.mixer.music.unload()
+
+        time.sleep(0.2)

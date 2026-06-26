@@ -26,6 +26,7 @@ from execution.executor import Executor
 
 from llm.groq_client import GroqClient
 from llm.planner import Planner
+from voice import manager
 
 from dotenv import load_dotenv
 
@@ -43,6 +44,7 @@ knowledge = KnowledgeTool()
 browser = BrowserTool()
 desktop = DesktopTool()
 fileSystem = FileSystemTool()
+voice = manager.VoiceManager()
 
 
 # =====================================================
@@ -73,6 +75,39 @@ set_desktop_tool(
 # =====================================================
 # MAIN
 # =====================================================
+
+
+def get_goal() -> str:
+
+    mode = input(
+        "1. Keyboard\n2. Voice\nChoose: "
+    ).strip()
+
+    if mode == "1":
+        return input("Goal: ").strip()
+
+    if mode == "2":
+        return voice.listen().strip()
+
+    print("Invalid choice. Please enter 1 or 2.")
+    return ""
+
+
+def speak_final_completion(state):
+
+    response = state.get("response") if isinstance(state, dict) else None
+
+    if not response:
+        return
+
+    final_text = getattr(
+        response,
+        "content",
+        ""
+    )
+
+    if final_text:
+        voice.speak(final_text)
 
 def main():
 
@@ -106,10 +141,17 @@ def main():
 )
     
     while True:
-        goal = input("Enter Goal: ")
+        goal = get_goal()
+
+        if not goal:
+            continue
+
         if goal.lower() == "exit":
             break
-        graph.run(goal)
+
+        final_state = graph.run(goal)
+
+        speak_final_completion(final_state)
 
     input(
         "\nPress Enter to close browser..."
