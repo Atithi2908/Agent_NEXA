@@ -22,9 +22,10 @@ class VoiceManager:
 
         audio_path = self.recorder.record()
 
-        text = self.stt.transcribe(
-            audio_path
-        )
+        if not audio_path:
+            return ""
+
+        text = self.stt.transcribe(audio_path)
 
         if os.path.exists(audio_path):
             os.remove(audio_path)

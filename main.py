@@ -75,21 +75,17 @@ set_desktop_tool(
 # =====================================================
 # MAIN
 # =====================================================
-
+mode =2
 
 def get_goal() -> str:
-
-    mode = input(
-        "1. Keyboard\n2. Voice\nChoose: "
-    ).strip()
-
-    if mode == "1":
+    # mode is hardcoded as an integer (2) above
+    if mode == 1:
         return input("Goal: ").strip()
 
-    if mode == "2":
+    if mode == 2:
         return voice.listen().strip()
 
-    print("Invalid choice. Please enter 1 or 2.")
+   
     return ""
 
 
