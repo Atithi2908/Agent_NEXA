@@ -25,7 +25,7 @@ Nexa combines an LLM planner, a single-action executor, and an observation step 
 
 ```mermaid
 graph TD
-    Main[main.py: main()] --> VoiceManager[voice/manager.py: VoiceManager]
+    Main["main.py: main()"] --> VoiceManager[voice/manager.py: VoiceManager]
     Main --> GroqClient[llm/groq_client.py: GroqClient]
     Main --> Planner[llm/planner.py: Planner]
     Main --> Executor[execution/executor.py: Executor]
@@ -74,23 +74,23 @@ graph TD
 
 ```mermaid
 graph LR
-    User[User input] --> GetGoal[main.py: get_goal()]
-    GetGoal -->|mode = 1| Keyboard[input()]
-    GetGoal -->|mode = 2| Listen[VoiceManager.listen()]
-    Listen --> Record[Recorder.record()]
-    Record --> Transcribe[SpeechToText.transcribe()]
+    User[User input] --> GetGoal["main.py: get_goal()"]
+    GetGoal -->|mode = 1| Keyboard["input()"]
+    GetGoal -->|mode = 2| Listen["VoiceManager.listen()"]
+    Listen --> Record["Recorder.record()"]
+    Record --> Transcribe["SpeechToText.transcribe()"]
     Keyboard --> Goal[goal string]
     Transcribe --> Goal
 
-    Goal --> Run[NexaGraph.run()]
+    Goal --> Run["NexaGraph.run()"]
     Run --> PlannerNode[planner_node]
-    PlannerNode --> Plan[Planner.plan()]
-    Plan --> Prompt[ChatPromptTemplate.from_template()]
+    PlannerNode --> Plan["Planner.plan()"]
+    Plan --> Prompt["ChatPromptTemplate.from_template()"]
     Prompt --> LLM[GroqClient / ChatGroq]
     LLM --> Response[LLM response with content + tool_calls]
 
-    Response --> Execute[Executor.execute()]
-    Execute --> ToolCall[LangChain tool.invoke()]
+    Response --> Execute["Executor.execute()"]
+    Execute --> ToolCall["LangChain tool.invoke()"]
     ToolCall --> ToolImpl[BrowserTool / DesktopTool / FileSystemTool / SearchTool / KnowledgeTool]
 
     ToolImpl --> Observe[observe_node]
@@ -98,10 +98,10 @@ graph LR
     StateUpdate --> PlannerNode
 
     Response -->|no tool_calls| Complete[Task completed]
-    Complete --> Speak[speak_final_completion()]
-    Speak --> TTS[VoiceManager.speak()]
-    TTS --> Render[TextToSpeech.synthesize()]
-    Render --> Play[AudioPlayer.play()]
+    Complete --> Speak["speak_final_completion()"]
+    Speak --> TTS["VoiceManager.speak()"]
+    TTS --> Render["TextToSpeech.synthesize()"]
+    Render --> Play["AudioPlayer.play()"]
     Play --> Output[spoken output]
 ```
 
