@@ -1,329 +1,386 @@
 # Nexa
 
-![Build](https://img.shields.io/badge/build-not%20configured-lightgrey)
-![Python](https://img.shields.io/badge/python-3.12.1-blue?logo=python&logoColor=white)
-![Node.js](https://img.shields.io/badge/node.js-not%20used-6DA55F?logo=nodedotjs&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12.1-blue?logo=python&logoColor=white" alt="Python 3.12.1"/>
+  <img src="https://img.shields.io/badge/LangGraph-1.2.6-blueviolet?logo=langchain&logoColor=white" alt="LangGraph"/>
+  <img src="https://img.shields.io/badge/LLM-Groq-orange?logo=groq&logoColor=white" alt="Groq"/>
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows"/>
+  <img src="https://img.shields.io/badge/voice-Deepgram-13EF93?logo=deepgram&logoColor=white" alt="Deepgram"/>
+  <img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status"/>
+</p>
 
-Nexa is a voice-first autonomous Python agent that plans tool use with LangGraph, executes one action at a time, and closes the loop with browser, desktop, filesystem, search, knowledge, and speech I/O integrations.
+> Voice-first autonomous AI agent that plans tool use with LangGraph, executes one action at a time, and operates across browser, desktop, filesystem, search, knowledge, and speech I/O.
+
+---
 
 ## Overview
 
-Nexa combines an LLM planner, a single-action executor, and an observation step into a bounded agent loop. The current entry point is [main.py](main.py), which wires real tool instances into [NexaGraph](agent/graph.py) and runs them against a Groq-backed chat model. The agent can operate over the browser, local desktop, files, web search, and a local Qdrant-backed knowledge store, while also supporting microphone input and spoken output through the `voice/` package. Prompt-level memory handling is built into [llm/planner.py](llm/planner.py), which references `user_info.txt` and the knowledge tools for remembered facts and retrieved context.
+Nexa combines an LLM planner, a single-action executor, and an observation step into a bounded agent loop. The entry point [`main.py`](main.py) wires real tool instances into [`NexaGraph`](agent/graph.py) and runs them against a Groq-backed chat model.
+
+The agent operates over the browser, local desktop, files, and web search — while also supporting microphone input and spoken output through the `voice/` package. A local Qdrant-backed knowledge store enables document ingestion and semantic retrieval. Prompt-level memory is handled in [`llm/planner.py`](llm/planner.py), which references `user_info.txt` and the knowledge tools for remembered facts and retrieved context.
+
+---
 
 ## Key Features
 
-- LangGraph-based control flow in [agent/graph.py](agent/graph.py) with explicit `planner -> tool -> observe` transitions.
-- Tool execution is constrained to a single tool call per step in [execution/executor.py](execution/executor.py); multi-action responses are rejected.
-- Browser automation uses Playwright persistent contexts rooted at `./data/browser_data` in [tools/browser.py](tools/browser.py).
-- Browser observations assign stable `element_id` values and maintain an internal `element_id_map` so the LLM can act on integers instead of fragile selectors.
-- Desktop control covers window listing, window switching, app launch/kill, typing, hotkeys, and active-window inspection in [tools/desktop.py](tools/desktop.py).
-- Filesystem operations support search, read/write, append, create-file, create-folder, and directory listing in [tools/filesystem.py](tools/filesystem.py).
-- Knowledge ingestion chunks text, embeds it with Ollama `nomic-embed-text`, and stores vectors in a local Qdrant collection in [rag/](rag).
-- Voice mode records audio from the microphone, transcribes with Deepgram, synthesizes speech with Deepgram, and plays audio with `pygame` through [voice/manager.py](voice/manager.py).
+- **LangGraph control flow** — explicit `planner → tool → observe` state transitions compiled in [`agent/graph.py`](agent/graph.py)
+- **Single-action enforcement** — [`execution/executor.py`](execution/executor.py) rejects multi-action LLM responses; exactly one tool call per step
+- **Browser automation** — Playwright persistent Chromium contexts with stable `element_id` mappings so the LLM acts on integers, not fragile CSS selectors ([`tools/browser.py`](tools/browser.py))
+- **Desktop control** — window listing, switching, app launch/kill, typing, hotkeys, and active-window inspection via `pyautogui` / `pywinauto` ([`tools/desktop.py`](tools/desktop.py))
+- **Filesystem operations** — recursive search, read/write/append, create file/folder, and directory listing ([`tools/filesystem.py`](tools/filesystem.py))
+- **RAG knowledge base** — chunks text, embeds with Ollama `nomic-embed-text`, stores in local Qdrant, and retrieves by semantic similarity ([`rag/`](rag/))
+- **Voice I/O** — microphone capture with silence detection, Deepgram STT/TTS, and `pygame` playback coordinated by [`voice/manager.py`](voice/manager.py)
+- **Web search** — Tavily-backed online search when the answer is not in memory or local knowledge ([`tools/search.py`](tools/search.py))
+
+---
 
 ## Architecture Diagram
 
 ```mermaid
 graph TD
-    Main["main.py: main()"] --> VoiceManager[voice/manager.py: VoiceManager]
-    Main --> GroqClient[llm/groq_client.py: GroqClient]
-    Main --> Planner[llm/planner.py: Planner]
-    Main --> Executor[execution/executor.py: Executor]
-    Main --> NexaGraph[agent/graph.py: NexaGraph]
+    Main["main.py · main()"] --> GroqClient["llm/groq_client.py · GroqClient"]
+    Main --> Planner["llm/planner.py · Planner"]
+    Main --> Executor["execution/executor.py · Executor"]
+    Main --> VoiceManager["voice/manager.py · VoiceManager"]
+    Main --> NexaGraph["agent/graph.py · NexaGraph"]
 
-    NexaGraph --> StateGraph[langgraph.graph.StateGraph]
-    NexaGraph --> GraphState[agent/graph.py: GraphState]
+    NexaGraph --> PlannerNode["planner_node"]
+    NexaGraph --> ToolNode["tool_node"]
+    NexaGraph --> ObserveNode["observe_node"]
 
-    NexaGraph --> PlannerNode[planner_node]
     PlannerNode --> Planner
-    Planner --> ChatGroq[ChatGroq]
+    Planner --> ChatGroq["ChatGroq · Groq API"]
 
-    NexaGraph --> ToolNode[tool_node]
     ToolNode --> Executor
-    Executor --> ToolWrappers[langchain_tools/*.py]
+    Executor --> ToolWrappers["langchain_tools/"]
 
-    ToolWrappers --> BrowserTools[langchain_tools/browser_tools.py]
-    ToolWrappers --> DesktopTools[langchain_tools/desktop_tools.py]
-    ToolWrappers --> FileSystemTools[langchain_tools/filesystem_tools.py]
-    ToolWrappers --> SearchTools[langchain_tools/search_tools.py]
-    ToolWrappers --> KnowledgeTools[langchain_tools/knowledge_tools.py]
+    subgraph Tools
+        ToolWrappers --> BrowserTool["tools/browser.py · BrowserTool"]
+        ToolWrappers --> DesktopTool["tools/desktop.py · DesktopTool"]
+        ToolWrappers --> FileSystemTool["tools/filesystem.py · FileSystemTool"]
+        ToolWrappers --> SearchTool["tools/search.py · SearchTool"]
+        ToolWrappers --> KnowledgeTool["tools/knowledge.py · KnowledgeTool"]
+    end
 
-    BrowserTools --> BrowserTool[tools/browser.py: BrowserTool]
-    DesktopTools --> DesktopTool[tools/desktop.py: DesktopTool]
-    FileSystemTools --> FileSystemTool[tools/filesystem.py: FileSystemTool]
-    SearchTools --> SearchTool[tools/search.py: SearchTool]
-    KnowledgeTools --> KnowledgeTool[tools/knowledge.py: KnowledgeTool]
+    subgraph RAG
+        KnowledgeTool --> Chunker["rag/chunker.py · Chunker"]
+        KnowledgeTool --> Embedder["rag/embedder.py · Embedder"]
+        KnowledgeTool --> QdrantManager["rag/qdrant_manager.py · QdrantManager"]
+    end
 
-    KnowledgeTool --> Chunker[rag/chunker.py: Chunker]
-    KnowledgeTool --> Embedder[rag/embedder.py: Embedder]
-    KnowledgeTool --> QdrantManager[rag/qdrant_manager.py: QdrantManager]
+    subgraph Voice
+        VoiceManager --> Recorder["voice/recorder.py · Recorder"]
+        VoiceManager --> STT["voice/stt.py · SpeechToText"]
+        VoiceManager --> TTS["voice/tts.py · TextToSpeech"]
+        VoiceManager --> Player["voice/player.py · AudioPlayer"]
+    end
 
-    VoiceManager --> Recorder[voice/recorder.py: Recorder]
-    VoiceManager --> SpeechToText[voice/stt.py: SpeechToText]
-    VoiceManager --> TextToSpeech[voice/tts.py: TextToSpeech]
-    VoiceManager --> AudioPlayer[voice/player.py: AudioPlayer]
-
-    NexaGraph --> ObserveNode[observe_node]
     ObserveNode --> BrowserTool
     ObserveNode --> DesktopTool
-
-    NexaGraph --> Output[final state / spoken response]
+    NexaGraph --> Output["Final state / spoken response"]
 ```
 
-## User Flow / Agent Flow
+---
+
+## Agent Flow
 
 ```mermaid
-graph LR
-    User[User input] --> GetGoal["main.py: get_goal()"]
-    GetGoal -->|mode = 1| Keyboard["input()"]
-    GetGoal -->|mode = 2| Listen["VoiceManager.listen()"]
-    Listen --> Record["Recorder.record()"]
-    Record --> Transcribe["SpeechToText.transcribe()"]
-    Keyboard --> Goal[goal string]
-    Transcribe --> Goal
+flowchart TD
+    A([User]) --> B["main.py · get_goal()"]
 
-    Goal --> Run["NexaGraph.run()"]
-    Run --> PlannerNode[planner_node]
-    PlannerNode --> Plan["Planner.plan()"]
-    Plan --> Prompt["ChatPromptTemplate.from_template()"]
-    Prompt --> LLM[GroqClient / ChatGroq]
-    LLM --> Response[LLM response with content + tool_calls]
+    B -->|mode = 1| C["input() — keyboard"]
+    B -->|mode = 2| D["VoiceManager.listen()"]
+    D --> D1["Recorder.record()"]
+    D1 --> D2["SpeechToText.transcribe()"]
 
-    Response --> Execute["Executor.execute()"]
-    Execute --> ToolCall["LangChain tool.invoke()"]
-    ToolCall --> ToolImpl[BrowserTool / DesktopTool / FileSystemTool / SearchTool / KnowledgeTool]
+    C --> Goal["goal: str"]
+    D2 --> Goal
 
-    ToolImpl --> Observe[observe_node]
-    Observe --> StateUpdate[GraphState history / observation / step_count]
-    StateUpdate --> PlannerNode
+    Goal --> Run["NexaGraph.run(goal)"]
+    Run --> Plan["planner_node → Planner.plan(state)"]
+    Plan --> LLM["ChatGroq — tool-bound inference"]
+    LLM --> Resp["LLM response\n(content + tool_calls)"]
 
-    Response -->|no tool_calls| Complete[Task completed]
-    Complete --> Speak["speak_final_completion()"]
-    Speak --> TTS["VoiceManager.speak()"]
-    TTS --> Render["TextToSpeech.synthesize()"]
-    Render --> Play["AudioPlayer.play()"]
-    Play --> Output[spoken output]
+    Resp -->|has tool_calls| Exec["Executor.execute(response)"]
+    Exec --> Invoke["LangChain tool.invoke()"]
+    Invoke --> ToolImpl["BrowserTool / DesktopTool / FileSystemTool\nSearchTool / KnowledgeTool"]
+    ToolImpl --> Obs["observe_node — refresh browser/desktop state"]
+    Obs --> State["GraphState: history + observation + step_count"]
+    State --> Plan
+
+    Resp -->|no tool_calls| Done["Task complete"]
+    Done --> Speak["speak_final_completion()"]
+    Speak --> TTS["VoiceManager.speak(text)"]
+    TTS --> Audio["AudioPlayer.play() → spoken output"]
+    Audio --> A
 ```
+
+---
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-| --- | --- | --- |
-| Runtime | Python 3.12.1, `venv` | Local execution environment for the agent and tools |
-| Orchestration | `langgraph` 1.2.6 | State-machine workflow for planning, tool execution, and observation |
-| LLM | `langchain`, `langchain-core`, `langchain-groq`, `groq` | Tool-bound planning with Groq-backed chat models |
-| Browser automation | `playwright` 1.60.0 | Persistent Chromium automation and DOM observation |
-| Desktop automation | `pyautogui`, `pygetwindow`, `pywinauto`, `psutil`, `pywin32` | Window management, typing, hotkeys, and process control on Windows |
-| Filesystem | `pathlib`, `os` | Local file discovery and file mutation |
-| Web search | `tavily-python` | Online search when the answer is not in memory or local knowledge |
-| Knowledge base | `qdrant-client`, `ollama`, `numpy`, `scipy` | Chunk, embed, store, and retrieve local documents |
-| Voice I/O | `deepgram-sdk`, `sounddevice`, `pygame` | Microphone capture, speech-to-text, text-to-speech, and playback |
-| Configuration | `python-dotenv` | Load API keys from `.env` |
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| Runtime | Python, venv | 3.12.1 | Local execution environment |
+| Orchestration | LangGraph | 1.2.6 | State-machine: plan → execute → observe |
+| LLM | LangChain + Groq | latest | Tool-bound planning via Groq chat models |
+| Browser | Playwright | 1.60.0 | Persistent Chromium automation and DOM observation |
+| Desktop | pyautogui, pygetwindow, pywinauto, pywin32 | — | Window management, typing, hotkeys (Windows only) |
+| Filesystem | pathlib, os | stdlib | Local file discovery and mutation |
+| Web search | tavily-python | — | Online search fallback |
+| Knowledge base | qdrant-client, ollama, numpy, scipy | — | Chunk → embed → store → retrieve local docs |
+| Voice I/O | deepgram-sdk, sounddevice, pygame | — | Mic capture, STT, TTS, audio playback |
+| Config | python-dotenv | — | Load API keys from `.env` |
+
+---
 
 ## Project Structure
 
-```text
-Nexa/
-├── .env # Local API keys for Groq, Tavily, and Deepgram.
-├── .gitignore # Excludes the virtual environment, generated browser data, screenshots, and logs.
-├── main.py # Entry point that wires tools, planner, executor, and voice I/O.
-├── README.md # Project documentation.
-├── response.mp3 # Generated audio output from text-to-speech.
-├── test.py # Voice interaction smoke test.
-├── test2.py # LangChain + Groq tool-binding smoke test.
-├── user_info.txt # Prompt-referenced memory file for user facts and reminders.
-├── agent/
-│   ├── graph.py # LangGraph orchestration and state transitions.
-│   ├── loop.py # Legacy/manual agent loop implementation.
-│   └── state.py # Typed state definitions for the manual loop.
-├── config/
-│   └── settings.py # Hardcoded runtime constants for Ollama and data paths.
-├── data/
-│   ├── browser_data/ # Persistent Playwright Chromium profile and cache.
-│   ├── qdrant/ # Local Qdrant storage for the knowledge base.
-│   └── screenshots/ # Output directory for screenshots.
-├── execution/
-│   └── executor.py # Dispatches one LLM tool call per step.
-├── langchain_tools/
-│   ├── all_tools.py # Aggregates all LangChain tool wrappers.
-│   ├── browser_tools.py # LangChain wrapper functions for BrowserTool.
-│   ├── desktop_tools.py # LangChain wrapper functions for DesktopTool.
-│   ├── filesystem_tools.py # LangChain wrapper functions for FileSystemTool.
-│   ├── knowledge_tools.py # LangChain wrapper functions for KnowledgeTool.
-│   └── search_tools.py # LangChain wrapper functions for SearchTool.
-├── llm/
-│   ├── groq_client.py # Groq chat client specialization.
-│   ├── ollama_client.py # Empty placeholder module.
-│   └── planner.py # Prompt construction and tool-bound planning.
-├── observation/
-│   └── observer.py # Thin adapter that calls `tool.observe()`.
-├── rag/
-│   ├── chunker.py # Fixed-size text chunking for retrieval ingestion.
-│   ├── embedder.py # Ollama embedding wrapper.
-│   └── qdrant_manager.py # Local Qdrant collection and query manager.
-├── tools/
-│   ├── browser.py # Playwright browser controller with element-id mapping.
-│   ├── desktop.py # Desktop/window/process automation.
-│   ├── filesystem.py # File and folder operations.
-│   ├── knowledge.py # Document ingestion and retrieval.
-│   └── search.py # Tavily-backed web search.
-├── venv/ # Local Python virtual environment.
-└── voice/
-    ├── config.py # Deepgram and recording constants.
-    ├── manager.py # Coordinates recording, transcription, synthesis, and playback.
-    ├── player.py # Audio playback helper.
-    ├── recorder.py # Microphone capture and silence detection.
-    ├── stt.py # Deepgram speech-to-text client.
-    └── tts.py # Deepgram text-to-speech client.
 ```
+Nexa/
+├── main.py                   # Entry point — wires tools, planner, executor, voice I/O
+├── test.py                   # Voice interaction smoke test
+├── test2.py                  # LangChain + Groq tool-binding smoke test
+├── user_info.txt             # Prompt-referenced memory file for user facts
+├── .env                      # API keys (Groq, Tavily, Deepgram) — never commit this
+│
+├── agent/
+│   ├── graph.py              # NexaGraph — LangGraph StateGraph with 3 nodes
+│   ├── loop.py               # Legacy manual agent loop
+│   └── state.py              # Typed state definitions for manual loop
+│
+├── config/
+│   └── settings.py           # Runtime constants (Ollama URL, data paths)
+│
+├── execution/
+│   └── executor.py           # Dispatches exactly one LLM tool call per step
+│
+├── langchain_tools/
+│   ├── all_tools.py          # Aggregates all LangChain tool wrappers
+│   ├── browser_tools.py      # LangChain wrappers for BrowserTool
+│   ├── desktop_tools.py      # LangChain wrappers for DesktopTool
+│   ├── filesystem_tools.py   # LangChain wrappers for FileSystemTool
+│   ├── knowledge_tools.py    # LangChain wrappers for KnowledgeTool
+│   └── search_tools.py       # LangChain wrappers for SearchTool
+│
+├── llm/
+│   ├── groq_client.py        # Groq chat client initialisation
+│   ├── planner.py            # Prompt construction + tool-bound LLM call
+│   └── ollama_client.py      # Placeholder (unused)
+│
+├── observation/
+│   └── observer.py           # Thin adapter → calls tool.observe()
+│
+├── rag/
+│   ├── chunker.py            # Fixed-size overlapping text chunker
+│   ├── embedder.py           # Ollama nomic-embed-text wrapper
+│   └── qdrant_manager.py     # Local Qdrant collection: insert, search, delete
+│
+├── tools/
+│   ├── browser.py            # Playwright controller with element_id mapping
+│   ├── desktop.py            # Desktop/window/process automation
+│   ├── filesystem.py         # File and folder operations
+│   ├── knowledge.py          # Document ingestion and semantic retrieval
+│   └── search.py             # Tavily web search
+│
+├── voice/
+│   ├── manager.py            # Coordinates record → transcribe → synthesise → play
+│   ├── recorder.py           # Mic capture with silence detection
+│   ├── stt.py                # Deepgram speech-to-text client
+│   ├── tts.py                # Deepgram text-to-speech client
+│   ├── player.py             # pygame audio playback helper
+│   └── config.py             # Deepgram + recording constants
+│
+└── data/
+    ├── browser_data/         # Persistent Playwright Chromium profile
+    ├── qdrant/               # Local Qdrant vector storage
+    └── screenshots/          # Screenshot output directory
+```
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Windows 10/11. The desktop automation layer uses `pyautogui`, `pygetwindow`, `pywinauto`, and `os.startfile`.
-- Python 3.12.1. The checked-in virtual environment is based on the local `venv` at [venv/](venv/).
-- Playwright 1.60.0 with Chromium available locally.
-- Groq API access via `GROQ_API_KEY`.
-- Tavily API access via `TAVILY_API_KEY`.
-- Deepgram API access via `DEEPGRAM_API_KEY`.
-- Ollama running locally on `http://localhost:11434` for embeddings used by [rag/embedder.py](rag/embedder.py).
-- A microphone and speakers if you plan to use voice mode.
+| Requirement | Notes |
+|-------------|-------|
+| Windows 10/11 | Desktop automation uses `pywinauto`, `pywin32`, `os.startfile` — Linux/macOS unsupported |
+| Python 3.12.1 | Match this version exactly to avoid dependency conflicts |
+| Ollama | Must be running locally on `http://localhost:11434` for RAG embeddings |
+| Groq API key | For LLM inference — [console.groq.com](https://console.groq.com) |
+| Tavily API key | For web search — [app.tavily.com](https://app.tavily.com) |
+| Deepgram API key | For STT + TTS — [console.deepgram.com](https://console.deepgram.com) |
+| Microphone + speakers | Required for voice mode (`mode = 2`) only |
 
 ### Installation
 
-1. Clone the repository.
-
+**1. Clone the repository**
 ```bash
 git clone https://github.com/Atithi2908/Agent_NEXA.git
-cd NEXA
+cd Agent_NEXA
 ```
 
-2. Create and activate a virtual environment.
-
+**2. Create and activate a virtual environment**
 ```bash
 python -m venv venv
 venv\Scripts\activate
 ```
 
-3. Install the direct runtime dependencies used by the codebase.
-
-```bat
-python -m pip install ^
-    python-dotenv langchain langchain-core langchain-groq langgraph groq ^
-    playwright tavily-python deepgram-sdk qdrant-client ollama numpy scipy ^
+**3. Install dependencies**
+```bash
+python -m pip install `
+    python-dotenv langchain langchain-core langchain-groq langgraph groq `
+    playwright tavily-python deepgram-sdk qdrant-client ollama numpy scipy `
     sounddevice pygame psutil pyautogui pygetwindow pywinauto pywin32
 ```
 
-4. Install the Playwright browser binary.
-
+**4. Install Playwright browser**
 ```bash
 python -m playwright install chromium
 ```
 
-5. Configure the environment variables in `.env`.
-
-```env
-GROQ_API_KEY=your_groq_key
-TAVILY_API_KEY=your_tavily_key
-DEEPGRAM_API_KEY=your_deepgram_key
+**5. Configure environment variables**
+```bash
+cp .env.example .env
+# then open .env and fill in your keys
 ```
 
-6. Start Ollama and pull the embedding model used by the RAG layer.
-
+**6. Start Ollama and pull the embedding model**
 ```bash
 ollama serve
 ollama pull nomic-embed-text
 ```
 
-7. Run the agent.
-
+**7. Run Nexa**
 ```bash
 python main.py
 ```
 
-By default, [main.py](main.py) uses voice input (`mode = 2`). Change `mode` to `1` in [main.py](main.py) if you want keyboard input instead of microphone capture.
+> **Input mode:** By default `main.py` uses voice input (`mode = 2`). Change `mode = 1` in `main.py` for keyboard input.
+
+---
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `GROQ_API_KEY` | Yes | `unset` | API key used by [llm/groq_client.py](llm/groq_client.py) and [main.py](main.py) to create the chat model. |
-| `TAVILY_API_KEY` | Yes | `unset` | API key used by [tools/search.py](tools/search.py) for web search. |
-| `DEEPGRAM_API_KEY` | Yes | `unset` | API key used by [voice/config.py](voice/config.py), [voice/stt.py](voice/stt.py), and [voice/tts.py](voice/tts.py). |
+|----------|----------|---------|-------------|
+| `GROQ_API_KEY` | ✅ Yes | — | Used by `llm/groq_client.py` to initialise the Groq chat model for all planning calls |
+| `TAVILY_API_KEY` | ✅ Yes | — | Used by `tools/search.py` to run web searches via Tavily |
+| `DEEPGRAM_API_KEY` | ✅ Yes | — | Used by `voice/stt.py` (transcription) and `voice/tts.py` (synthesis) |
+
+> All three keys are mandatory. The agent will fail to start if any are missing from `.env`.
+
+---
 
 ## API Reference
 
-Nexa does not expose an HTTP API. The core public surface is the Python class and function set below.
+Nexa does not expose an HTTP API. The public surface is the Python class and function set below.
 
 ### Core Orchestration
 
-| Function / Class | Parameters | Returns | Description |
-| --- | --- | --- | --- |
-| `main.main()` | None | None | Builds tool instances, binds them into `NexaGraph`, and runs the interactive agent loop. |
-| `agent.graph.NexaGraph(planner, executor, tools)` | `planner`, `executor`, `tools` | `NexaGraph` instance | Compiles the LangGraph workflow used by the current entry point. |
-| `NexaGraph.run(goal)` | `goal: str` | Final graph state dict | Initializes `GraphState` and invokes the compiled graph. |
-| `llm.planner.Planner.plan(state)` | `state: GraphState` | LLM response object | Renders the prompt, binds tools, and invokes the Groq chat model. |
-| `execution.executor.Executor.execute(response)` | `response` with `tool_calls` | Tool result or `None` | Dispatches exactly one LangChain tool call. |
+| Class / Function | Parameters | Returns | Description |
+|-----------------|-----------|---------|-------------|
+| `main.main()` | — | None | Builds tool instances, wires `NexaGraph`, runs the interactive loop |
+| `NexaGraph(planner, executor, tools)` | `planner`, `executor`, `tools` | `NexaGraph` | Compiles the LangGraph `StateGraph` |
+| `NexaGraph.run(goal)` | `goal: str` | `dict` (final graph state) | Initialises `GraphState` and invokes the compiled graph |
+| `Planner.plan(state)` | `state: GraphState` | LLM response object | Renders prompt, binds tools, calls Groq model |
+| `Executor.execute(response)` | `response` with `tool_calls` | tool result or `None` | Dispatches exactly one tool call; rejects multi-action responses |
 
-### Tool Implementations
+### Browser Tool · `tools/browser.py`
 
-| Function / Class | Parameters | Returns | Description |
-| --- | --- | --- | --- |
-| `tools.browser.BrowserTool.navigate(url)` | `url: str` | `dict` | Opens a URL in the persistent Playwright context. |
-| `BrowserTool.click(selector=None, element_id=None)` | selector or `element_id` | `dict` | Clicks a visible browser element using a selector or the observation-time `element_id`. |
-| `BrowserTool.type(selector=None, element_id=None, text="")` | selector or `element_id`, `text` | `dict` | Types text into a browser element. |
-| `BrowserTool.press(key)` | `key: str` | `dict` | Sends a keyboard key to the browser page. |
-| `BrowserTool.observe()` | None | `dict` | Returns page title, URL, and visible buttons/links/inputs with `element_id` mappings. |
-| `BrowserTool.close()` | None | `dict`/`None` | Closes the Playwright context. |
-| `tools.desktop.DesktopTool.open_app(app_name)` | `app_name: str` | `dict` | Launches an application using the Windows Start menu. |
-| `DesktopTool.close_app(app_name)` | `app_name: str` | `dict` | Kills matching `*.exe` processes. |
-| `DesktopTool.switch_window(target)` | `target: str` | `dict` | Activates the first open window whose title contains `target`. |
-| `DesktopTool.list_open_apps()` | None | `dict` | Returns the current window titles. |
-| `DesktopTool.type_text(text)` | `text: str` | `dict` | Types into the active window. |
-| `DesktopTool.press_key(key)` | `key: str` | `dict` | Sends a key press to the active window. |
-| `DesktopTool.hotkey(keys)` | `keys: list[str]` | `dict` | Sends a keyboard shortcut. |
-| `DesktopTool.observe()` | None | `dict` | Returns the active window title and open-window list. |
-| `tools.filesystem.FileSystemTool.find_file(filename)` | `filename: str` | `dict` | Searches `Path.home()` recursively for matching files. |
-| `FileSystemTool.find_folder(folder_name)` | `folder_name: str` | `dict` | Searches `Path.home()` recursively for matching folders. |
-| `FileSystemTool.list_directory(path)` | `path: str` | `dict` | Lists the contents of a directory. |
-| `FileSystemTool.open_file(path)` | `path: str` | `dict` | Opens a file with the default Windows application. |
-| `FileSystemTool.create_file(path)` | `path: str` | `dict` | Creates an empty file. |
-| `FileSystemTool.create_folder(path)` | `path: str` | `dict` | Creates a directory tree. |
-| `FileSystemTool.read_file(path)` | `path: str` | `dict` | Reads up to 2000 characters from a file. |
-| `FileSystemTool.write_file(path, content)` | `path: str`, `content: str` | `dict` | Overwrites a file. |
-| `FileSystemTool.append_file(path, content)` | `path: str`, `content: str` | `dict` | Appends content to an existing file. |
-| `tools.knowledge.KnowledgeTool.add_document(path)` | `path: str` | `dict` | Chunks, embeds, and stores a document in Qdrant. |
-| `KnowledgeTool.retrieve(question, limit=5)` | `question: str`, `limit: int` | `dict` | Retrieves the most relevant chunks from Qdrant. |
-| `tools.search.SearchTool.search(query)` | `query: str` | `dict` | Searches the web through Tavily and returns answer plus source summaries. |
-| `voice.manager.VoiceManager.listen()` | None | `str` | Records audio, transcribes it, and removes the temporary WAV file. |
-| `VoiceManager.speak(text)` | `text: str` | None | Synthesizes speech and plays it back, then deletes the generated MP3. |
-| `observation.observer.Observer.observe(tool)` | `tool` with `observe()` | tool result | Thin adapter that forwards observation to the provided tool. |
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `BrowserTool.navigate(url)` | `url: str` | `dict` | Opens a URL in the persistent Playwright context |
+| `BrowserTool.click(selector, element_id)` | selector or `element_id: int` | `dict` | Clicks a visible element by selector or observation-time `element_id` |
+| `BrowserTool.type(selector, element_id, text)` | selector or `element_id`, `text: str` | `dict` | Types into a browser element |
+| `BrowserTool.press(key)` | `key: str` | `dict` | Sends a keyboard key to the active page |
+| `BrowserTool.observe()` | — | `dict` | Returns page title, URL, and visible elements with `element_id` mappings |
+| `BrowserTool.close()` | — | `dict` | Closes the Playwright context |
 
-### RAG Components
+### Desktop Tool · `tools/desktop.py`
 
-| Function / Class | Parameters | Returns | Description |
-| --- | --- | --- | --- |
-| `rag.chunker.Chunker.chunk_text(text)` | `text: str` | `list[str]` | Produces fixed-size overlapping chunks. |
-| `rag.embedder.Embedder.embed(text)` | `text: str` | `list[float]` | Calls `ollama.embeddings()` with `nomic-embed-text`. |
-| `rag.qdrant_manager.QdrantManager.create_collection()` | None | None | Creates the local `knowledge_base` collection if it does not exist. |
-| `QdrantManager.insert_chunk(...)` | `chunk_id`, `chunk_text`, `embedding`, `source` | None | Inserts a single vector payload into Qdrant. |
-| `QdrantManager.search(query_embedding, limit=5)` | `query_embedding`, `limit` | `list` | Queries the local Qdrant collection. |
-| `QdrantManager.delete_source(source)` | `source: str` | None | Deletes all chunks for a source file before re-ingesting it. |
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `DesktopTool.open_app(app_name)` | `app_name: str` | `dict` | Launches an app via the Windows Start menu |
+| `DesktopTool.close_app(app_name)` | `app_name: str` | `dict` | Kills matching `*.exe` processes |
+| `DesktopTool.switch_window(target)` | `target: str` | `dict` | Activates the first window whose title contains `target` |
+| `DesktopTool.list_open_apps()` | — | `dict` | Returns current open window titles |
+| `DesktopTool.type_text(text)` | `text: str` | `dict` | Types into the active window |
+| `DesktopTool.press_key(key)` | `key: str` | `dict` | Sends a key press to the active window |
+| `DesktopTool.hotkey(keys)` | `keys: list[str]` | `dict` | Sends a keyboard shortcut |
+| `DesktopTool.observe()` | — | `dict` | Returns active window title and open-window list |
+
+### Filesystem Tool · `tools/filesystem.py`
+
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `FileSystemTool.find_file(filename)` | `filename: str` | `dict` | Recursively searches `Path.home()` for matching files |
+| `FileSystemTool.find_folder(folder_name)` | `folder_name: str` | `dict` | Recursively searches `Path.home()` for matching folders |
+| `FileSystemTool.list_directory(path)` | `path: str` | `dict` | Lists directory contents |
+| `FileSystemTool.read_file(path)` | `path: str` | `dict` | Reads up to 2000 characters from a file |
+| `FileSystemTool.write_file(path, content)` | `path: str`, `content: str` | `dict` | Overwrites a file |
+| `FileSystemTool.append_file(path, content)` | `path: str`, `content: str` | `dict` | Appends to an existing file |
+| `FileSystemTool.create_file(path)` | `path: str` | `dict` | Creates an empty file |
+| `FileSystemTool.create_folder(path)` | `path: str` | `dict` | Creates a directory tree |
+| `FileSystemTool.open_file(path)` | `path: str` | `dict` | Opens a file with the default Windows app |
+
+### Knowledge Tool · `tools/knowledge.py`
+
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `KnowledgeTool.add_document(path)` | `path: str` | `dict` | Chunks, embeds, and stores a document in Qdrant |
+| `KnowledgeTool.retrieve(question, limit)` | `question: str`, `limit: int = 5` | `dict` | Retrieves the most semantically relevant chunks |
+
+### Search & Voice
+
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `SearchTool.search(query)` | `query: str` | `dict` | Tavily web search — answer + source summaries |
+| `VoiceManager.listen()` | — | `str` | Records audio, transcribes, deletes temp WAV, returns text |
+| `VoiceManager.speak(text)` | `text: str` | None | Synthesises + plays speech, deletes generated MP3 |
+
+### RAG Components · `rag/`
+
+| Class / Method | Parameters | Returns | Description |
+|---------------|-----------|---------|-------------|
+| `Chunker.chunk_text(text)` | `text: str` | `list[str]` | Fixed-size overlapping chunks |
+| `Embedder.embed(text)` | `text: str` | `list[float]` | Calls `ollama.embeddings()` with `nomic-embed-text` |
+| `QdrantManager.create_collection()` | — | None | Creates `knowledge_base` collection if absent |
+| `QdrantManager.insert_chunk(...)` | `chunk_id`, `chunk_text`, `embedding`, `source` | None | Inserts a vector + payload into Qdrant |
+| `QdrantManager.search(query_embedding, limit)` | `query_embedding`, `limit: int = 5` | `list` | Queries the local Qdrant collection |
+| `QdrantManager.delete_source(source)` | `source: str` | None | Deletes all chunks for a source before re-ingestion |
+
+---
 
 ## How It Works
 
-- [main.py](main.py) loads `.env`, instantiates the real tool objects, connects them to the LangChain wrappers, and builds a `GroqClient` plus `Planner`/`Executor` pair.
-- [agent/graph.py](agent/graph.py) compiles a `StateGraph` with three nodes: `planner_node`, `tool_node`, and `observe_node`.
-- `Planner.plan()` in [llm/planner.py](llm/planner.py) formats the prompt from `goal`, `history`, and `observation`, then calls the Groq chat model with `ALL_TOOLS` bound.
-- `Executor.execute()` in [execution/executor.py](execution/executor.py) enforces one tool call per step and dispatches the selected tool through `tool.invoke()`.
-- `observe_node` refreshes browser or desktop state after each action and appends the latest result to `history`, which keeps the next planning step grounded in the current UI state.
+1. **Startup** — `main.py` loads `.env`, instantiates all tool objects, connects them to LangChain wrappers, and builds a `GroqClient` + `Planner` / `Executor` pair.
+
+2. **Input** — `get_goal()` either reads a string from `input()` (mode 1) or records audio via `Recorder`, transcribes with `SpeechToText`, and returns the goal string (mode 2).
+
+3. **Planning** — `planner_node` calls `Planner.plan(state)`, which formats a prompt from `goal`, `history`, and `observation`, then invokes `ChatGroq` with all tools bound. The LLM returns a response with `tool_calls`.
+
+4. **Execution** — `tool_node` calls `Executor.execute(response)`, which enforces a single tool call per step and dispatches it through `tool.invoke()`. Multi-action responses are rejected outright.
+
+5. **Observation** — `observe_node` calls `tool.observe()` on browser or desktop to refresh the current UI state, appending the result to `GraphState.history` so the next planning step is grounded.
+
+6. **Completion** — when the LLM returns no `tool_calls`, the loop exits and `speak_final_completion()` passes the result through `VoiceManager.speak()` for audio output.
+
+---
 
 ## Contributing
 
-1. Fork the repository and create a feature branch.
-2. Make focused changes that preserve the current agent loop and tool contracts.
-3. Run the relevant smoke test or entry point, depending on the area you changed.
-4. Commit with a clear message and open a pull request.
+1. Fork the repository and create a feature branch
+```bash
+git checkout -b feature/your-feature
+```
+2. Make focused changes that preserve the agent loop and tool contracts
+3. Run the relevant smoke test (`test.py` for voice, `test2.py` for tool binding)
+4. Commit with a descriptive message
+```bash
+git commit -m "feat: describe what you changed"
+```
+5. Push and open a pull request against `main`
 
-No formatter or linter configuration is checked in. Follow the existing code style in the touched files and keep changes small and explicit.
+No formatter config is checked in — follow the existing code style in whatever files you touch and keep changes small and explicit.
